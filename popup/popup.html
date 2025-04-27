@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Focus Bubble</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Focus Bubble</h1>
+      <p class="tagline">Stay distraction-free while you work</p>
+    </header>
+    
+    <div class="status-container">
+      <div class="status-indicator">
+        <div id="status-circle" class="status inactive"></div>
+        <div id="status-text">Focus Mode: OFF</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="focus-toggle">
+        <span class="slider round"></span>
+      </label>
+    </div>
+
+    <div class="current-app">
+      <p id="current-app-text">Not currently in a focus app</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="stats">
+      <p>Focus sessions today: <span id="sessions-count">0</span></p>
+      <p>Distractions blocked: <span id="blocks-count">0</span></p>
+    </div>
+
+    <footer>
+      <button id="settings-btn">Settings</button>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
