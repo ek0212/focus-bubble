@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusCircle = document.getElementById('status-circle');
   const statusText = document.getElementById('status-text');
   const focusToggle = document.getElementById('focus-toggle');
-  const currentAppText = document.getElementById('current-app-text');
+  const currentAppText = document.getElementById('currently-focusing-on');
   const sessionsCount = document.getElementById('sessions-count');
   const blocksCount = document.getElementById('blocks-count');
   const settingsBtn = document.getElementById('settings-btn');
@@ -39,6 +39,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     );
+  });
+
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === "focusStateChanged") {
+        updateStatusDisplay(message.isInFocusMode);
+        if (!message.isInFocusMode) {
+            currentAppText.textContent = 'Not currently in a focus app';
+        }
+    }
   });
 
   // Settings button (just a placeholder for now)
