@@ -153,6 +153,12 @@
     font-weight: 600;
     color: #3498db;
   }
+
+  .stats-note {
+    color: #95a5a6;
+    font-size: 12px;
+    font-style: italic;
+  }
   
   footer {
     text-align: center;
@@ -172,4 +178,3 @@
   #settings-btn:hover {
     background-color: #2980b9;
   }
-  

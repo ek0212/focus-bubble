@@ -1,8 +1,17 @@
+console.log('[Focus Bubble] content.js loaded');
+
+// Notify background script that content script is ready
+chrome.runtime.sendMessage({ action: "contentScriptReady", tabId: window.__uniqueId });
+
+// Set injection marker
+window._focusBubbleInjected = true;
+
 // Content script handles the warning overlay functionality
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "showWarning") {
     showWarningOverlay(message.focusAppName, message.delaySeconds);
     sendResponse({ success: true });
+    return true; // Keep message channel open for async response
   }
 });
 

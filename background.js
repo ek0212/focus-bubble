@@ -18,17 +18,48 @@ const defaultSettings = {
       { domain: "instagram.com", name: "Instagram" },
       { domain: "tiktok.com", name: "TikTok" }
     ],
-    delaySeconds: 5,
+    delaySeconds: 3,
     isInFocusMode: false,
-    currentFocusApp: null
+    currentFocusApp: null,
+    focusSessions: 0,
+    distractionsBlocked: 0
   };
   
   let focusedTabs = new Map(); // Maps tabId to {url, domain, timestamp}
+  let contentScriptReadyTabs = new Set(); // Map to track which tabs have content scripts ready
 
   // Initialize settings
   chrome.runtime.onInstalled.addListener(() => {
     chrome.storage.local.set(defaultSettings);
+    
+    // Reset counters at midnight
+    chrome.alarms.create('resetCounters', {
+        when: getNextMidnight(),
+        periodInMinutes: 24 * 60 // Run daily
+    });
   });
+
+  // Reset counters at midnight
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'resetCounters') {
+        chrome.storage.local.set({
+            focusSessions: 0,
+            distractionsBlocked: 0
+        }, () => {
+            // Notify popup of reset stats
+            chrome.runtime.sendMessage({
+                action: "statsUpdated"
+            });
+        });
+    }
+  });
+
+  function getNextMidnight() {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    return midnight.getTime();
+  }
   
   // Listen for tab updates
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -56,6 +87,9 @@ const defaultSettings = {
         const focusApp = settings.focusApps.find(app => domain.includes(app.domain));
         
         if (focusApp) {
+            // Check if this is a new focus session
+            const wasInFocusMode = focusedTabs.size > 0;
+            
             // Add to focused tabs
             focusedTabs.set(tab.id, {
                 url: tab.url,
@@ -64,11 +98,26 @@ const defaultSettings = {
                 appName: focusApp.name
             });
             
-            // Update focus mode state
-            chrome.storage.local.set({ 
-                isInFocusMode: true,
-                currentFocusApp: getCurrentlyFocusingOn()
-            });
+            // If this is a new focus session, increment the counter
+            if (!wasInFocusMode) {
+                chrome.storage.local.get(['focusSessions'], (data) => {
+                    chrome.storage.local.set({ 
+                        focusSessions: (data.focusSessions || 0) + 1,
+                        isInFocusMode: true,
+                        currentFocusApp: getCurrentlyFocusingOn()
+                    }, () => {
+                        // Notify popup of updated stats
+                        chrome.runtime.sendMessage({
+                            action: "statsUpdated"
+                        });
+                    });
+                });
+            } else {
+                chrome.storage.local.set({ 
+                    isInFocusMode: true,
+                    currentFocusApp: getCurrentlyFocusingOn()
+                });
+            }
             
             updateIcon(true);
         } else {
@@ -110,18 +159,84 @@ function getCurrentlyFocusingOn() {
 }
 
 // Helper function to handle distractions
-function handleDistraction(tab, settings) {
-  console.log('[Focus Bubble] Attempting to show warning overlay');
-  try {
+async function handleDistraction(tab, settings) {
     const currentFocus = getCurrentlyFocusingOn();
-    chrome.tabs.sendMessage(tab.id, {
-      action: "showWarning",
-      focusAppName: currentFocus.name,
-      delaySeconds: settings.delaySeconds
-    });
-  } catch (e) {
-    console.error('[Focus Bubble] Error showing warning:', e);
-  }
+
+    // Inject content script and wait for it to be ready
+    const injectContentScript = async (tabId) => {
+        try {
+            const [result] = await chrome.scripting.executeScript({
+                target: { tabId },
+                func: () => window._focusBubbleInjected === true
+            });
+            if (result?.result === true) {
+                return;
+            }
+        } catch {
+            // Silent fail if script check fails
+        }
+
+        try {
+            // Inject the content script
+            await chrome.scripting.executeScript({
+                target: { tabId },
+                func: () => {
+                    window._focusBubbleInjected = true;
+                }
+            });
+
+            await chrome.scripting.executeScript({
+                target: { tabId },
+                files: ['content.js']
+            });
+
+            // Wait a moment for the script to initialize
+            await new Promise(resolve => setTimeout(resolve, 50));
+        } catch {
+            // Silent fail if injection fails
+        }
+    };
+
+    // Make sure content script is injected
+    await injectContentScript(tab.id);
+
+    try {
+        // Update distractions counter
+        await new Promise((resolve) => {
+            chrome.storage.local.get(['distractionsBlocked'], (data) => {
+                chrome.storage.local.set({ 
+                    distractionsBlocked: (data.distractionsBlocked || 0) + 1 
+                }, () => {
+                    chrome.runtime.sendMessage({
+                        action: "statsUpdated"
+                    });
+                    resolve();
+                });
+            });
+        });
+    } catch {
+        // Silent fail if counter update fails
+    }
+
+    // Try to send the message multiple times if needed
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 100;
+
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            await chrome.tabs.sendMessage(tab.id, {
+                action: "showWarning",
+                focusAppName: currentFocus.name,
+                delaySeconds: settings.delaySeconds
+            });
+            break; // Message sent successfully
+        } catch {
+            if (i < MAX_RETRIES - 1) {
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            }
+            // Silent fail on last attempt
+        }
+    }
 }
   
 // Function to update the extension icon based on focus state
@@ -135,19 +250,23 @@ function updateIcon(isFocused) {
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "toggleFocusMode") {
-      chrome.storage.local.get(['isInFocusMode'], (data) => {
-        const newState = !data.isInFocusMode;
-        chrome.storage.local.set({ isInFocusMode: newState });
-        updateIcon(newState);
-        sendResponse({ success: true, isInFocusMode: newState });
-      });
-      return true; // Keep the message channel open for async response
+    if (message.action === "contentScriptReady" && sender.tab) {
+        contentScriptReadyTabs.add(sender.tab.id);
     }
-  });
+    if (message.action === "toggleFocusMode") {
+        chrome.storage.local.get(['isInFocusMode'], (data) => {
+            const newState = !data.isInFocusMode;
+            chrome.storage.local.set({ isInFocusMode: newState });
+            updateIcon(newState);
+            sendResponse({ success: true, isInFocusMode: newState });
+        });
+        return true;
+    }
+});
 
-  // Add tab removal listener
-  chrome.tabs.onRemoved.addListener(async (tabId) => {
+// Add tab removal listener
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+    contentScriptReadyTabs.delete(tabId);
     if (focusedTabs.has(tabId)) {
         focusedTabs.delete(tabId);
         
@@ -172,4 +291,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
         }
     }
-  });
+});

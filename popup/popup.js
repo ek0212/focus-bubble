@@ -47,6 +47,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!message.isInFocusMode) {
             currentAppText.textContent = 'Not currently in a focus app';
         }
+        // Refresh stats when focus state changes
+        refreshStats();
+    } else if (message.action === "statsUpdated") {
+        refreshStats();
     }
   });
 
@@ -55,6 +59,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // In the future, this will open a settings page
     alert('Settings functionality will be added in a future update!');
   });
+
+  // Function to refresh stats display
+  function refreshStats() {
+    chrome.storage.local.get(['focusSessions', 'distractionsBlocked'], (data) => {
+      sessionsCount.textContent = data.focusSessions || 0;
+      blocksCount.textContent = data.distractionsBlocked || 0;
+    });
+  }
+
+  // Update stats every time popup opens
+  refreshStats();
 
   // Helper function to update status display
   function updateStatusDisplay(isActive) {
