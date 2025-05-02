@@ -18,18 +18,18 @@ const defaultSettings = {
       { domain: "instagram.com", name: "Instagram" },
       { domain: "tiktok.com", name: "TikTok" }
     ],
-    delaySeconds: 3,
+    delaySeconds: 5,
     isInFocusMode: false,
     currentFocusApp: null,
     focusSessions: 0,
     distractionsBlocked: 0
-  };
-  
-  let focusedTabs = new Map(); // Maps tabId to {url, domain, timestamp}
-  let contentScriptReadyTabs = new Set(); // Map to track which tabs have content scripts ready
+};
 
-  // Initialize settings
-  chrome.runtime.onInstalled.addListener(() => {
+let focusedTabs = new Map(); // Maps tabId to {url, domain, timestamp}
+let contentScriptReadyTabs = new Set(); // Map to track which tabs have content scripts ready
+
+// Initialize settings
+chrome.runtime.onInstalled.addListener(() => {
     chrome.storage.local.set(defaultSettings);
     
     // Reset counters at midnight
@@ -37,10 +37,10 @@ const defaultSettings = {
         when: getNextMidnight(),
         periodInMinutes: 24 * 60 // Run daily
     });
-  });
+});
 
-  // Reset counters at midnight
-  chrome.alarms.onAlarm.addListener((alarm) => {
+// Reset counters at midnight
+chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'resetCounters') {
         chrome.storage.local.set({
             focusSessions: 0,
@@ -52,39 +52,40 @@ const defaultSettings = {
             });
         });
     }
-  });
+});
 
-  function getNextMidnight() {
+function getNextMidnight() {
     const now = new Date();
     const midnight = new Date(now);
     midnight.setHours(24, 0, 0, 0);
     return midnight.getTime();
-  }
-  
-  // Listen for tab updates
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+}
+
+// Listen for tab updates
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.active) {
-      checkCurrentTab(tab);
+        checkCurrentTab(tab);
     }
-  });
-  
-  // Listen for tab activation changes
-  chrome.tabs.onActivated.addListener(({ tabId }) => {
+});
+
+// Listen for tab activation changes
+chrome.tabs.onActivated.addListener(({ tabId }) => {
     chrome.tabs.get(tabId, checkCurrentTab);
-  });
-  
-  // Listen for new tab creation
-  function checkCurrentTab(tab) {
+});
+
+// Listen for new tab creation
+function checkCurrentTab(tab) {
     if (!tab.url) return;
     
     const url = new URL(tab.url);
     const domain = url.hostname.replace('www.', '');
     
-    chrome.storage.local.get(defaultSettings, (settings) => {
+    chrome.storage.local.get(['isEnabled', 'focusApps', 'distractingSites'], (settings) => {
         if (!settings.isEnabled) return;
         
         // Check if this is a focus app
-        const focusApp = settings.focusApps.find(app => domain.includes(app.domain));
+        const focusApp = (settings.focusApps || defaultSettings.focusApps)
+            .find(app => domain.includes(app.domain));
         
         if (focusApp) {
             // Check if this is a new focus session
@@ -126,9 +127,8 @@ const defaultSettings = {
             
             // Check if this is a distraction site while in focus mode
             if (focusedTabs.size > 0) { // Still in focus mode if we have other focus tabs
-                const isDistraction = settings.distractingSites.some(site => 
-                    domain.includes(site.domain)
-                );
+                const isDistraction = (settings.distractingSites || defaultSettings.distractingSites)
+                    .some(site => domain.includes(site.domain));
                 
                 if (isDistraction) {
                     handleDistraction(tab, settings);
@@ -173,7 +173,9 @@ async function handleDistraction(tab, settings) {
                 return;
             }
         } catch {
-            // Silent fail if script check fails
+            if (chrome.runtime.lastError) {
+                console.debug("Script check failed:", chrome.runtime.lastError.message);
+            }
         }
 
         try {
@@ -193,7 +195,9 @@ async function handleDistraction(tab, settings) {
             // Wait a moment for the script to initialize
             await new Promise(resolve => setTimeout(resolve, 50));
         } catch {
-            // Silent fail if injection fails
+            if (chrome.runtime.lastError) {
+                console.debug("Content script injection failed:", chrome.runtime.lastError.message);
+            }
         }
     };
 
@@ -204,12 +208,25 @@ async function handleDistraction(tab, settings) {
         // Update distractions counter
         await new Promise((resolve) => {
             chrome.storage.local.get(['distractionsBlocked'], (data) => {
+                if (chrome.runtime.lastError) {
+                    console.debug("Storage get failed:", chrome.runtime.lastError.message);
+                    resolve();
+                    return;
+                }
                 chrome.storage.local.set({ 
                     distractionsBlocked: (data.distractionsBlocked || 0) + 1 
                 }, () => {
-                    chrome.runtime.sendMessage({
-                        action: "statsUpdated"
-                    });
+                    if (chrome.runtime.lastError) {
+                        console.debug("Storage set failed:", chrome.runtime.lastError.message);
+                    } else {
+                        chrome.runtime.sendMessage({
+                            action: "statsUpdated"
+                        }, () => {
+                            if (chrome.runtime.lastError) {
+                                console.debug("Stats update message failed:", chrome.runtime.lastError.message);
+                            }
+                        });
+                    }
                     resolve();
                 });
             });
@@ -224,17 +241,25 @@ async function handleDistraction(tab, settings) {
 
     for (let i = 0; i < MAX_RETRIES; i++) {
         try {
-            await chrome.tabs.sendMessage(tab.id, {
-                action: "showWarning",
-                focusAppName: currentFocus.name,
-                delaySeconds: settings.delaySeconds
+            await new Promise((resolve, reject) => {
+                chrome.tabs.sendMessage(tab.id, {
+                    action: "showWarning",
+                    focusAppName: currentFocus.name,
+                    delaySeconds: settings.delaySeconds
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.debug("No receiving end — skipping:", chrome.runtime.lastError.message);
+                        reject(chrome.runtime.lastError);
+                    } else {
+                        resolve(response);
+                    }
+                });
             });
             break; // Message sent successfully
-        } catch {
+        } catch (e) {
             if (i < MAX_RETRIES - 1) {
                 await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
             }
-            // Silent fail on last attempt
         }
     }
 }
