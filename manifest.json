@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Focus Bubble",
     "version": "1.0.0",
-    "description": "Context-aware do not disturb mode that detects focus apps and prevents distractions",
+    "description": "Block distractions while using focus apps",
     "permissions": ["tabs", "storage", "scripting", "alarms"],
     "host_permissions": ["<all_urls>"],
     "action": {
@@ -28,4 +28,3 @@
       "128": "icons/icon128.png"
     }
   }
-  

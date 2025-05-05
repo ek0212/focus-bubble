@@ -10,18 +10,15 @@ window._focusBubbleInjected = true;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "showWarning") {
     showWarningOverlay(message.focusAppName, message.delaySeconds);
-    sendResponse({ success: true });
+    Promise.resolve(sendResponse({ success: true })).catch(() => {});
     return true; // Keep message channel open for async response
   }
 });
 
 // Function to show the warning overlay
 function showWarningOverlay(focusAppName, delaySeconds) {
-  console.log('[Focus Bubble] showWarningOverlay called with:', focusAppName, delaySeconds);
-  // Check if overlay already exists
   if (document.getElementById('focus-bubble-overlay')) return;
 
-  // Create overlay container
   const overlay = document.createElement('div');
   overlay.id = 'focus-bubble-overlay';
   overlay.style.cssText = `
@@ -30,65 +27,76 @@ function showWarningOverlay(focusAppName, delaySeconds) {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(5px);
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
     color: white;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 2147483647;
-    font-family: 'Arial', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     opacity: 0;
     transition: opacity 0.3s ease;
   `;
 
-  // Create message container
   const messageBox = document.createElement('div');
   messageBox.style.cssText = `
-    background-color: rgba(44, 62, 80, 0.95);
-    padding: 40px;
-    border-radius: 10px;
+    background-color: rgba(30, 41, 59, 0.95);
+    padding: 48px;
+    border-radius: 16px;
     text-align: center;
-    max-width: 500px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(10px);
+    max-width: 460px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     transform: translateY(20px);
     transition: transform 0.3s ease;
   `;
 
-  // Create title
   const title = document.createElement('h2');
-  title.innerText = 'Stay Focused!';
-  title.style.cssText = 'margin-top: 0; color: #3498db; font-size: 28px;';
+  title.innerText = 'Stay Focused';
+  title.style.cssText = `
+    margin: 0 0 24px 0;
+    color: #60a5fa;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  `;
 
-  // Create message
   const message = document.createElement('p');
-  message.innerText = `You're currently working in ${focusAppName}. Do you really need to visit this site right now?`;
-  message.style.cssText = 'font-size: 18px; margin: 20px 0;';
+  message.innerText = `Currently in ${focusAppName}. Continue?`;
+  message.style.cssText = `
+    font-size: 18px;
+    line-height: 1.6;
+    margin: 0 0 36px 0;
+    color: #e2e8f0;
+  `;
 
-  // Create buttons container
   const buttons = document.createElement('div');
-  buttons.style.cssText = 'display: flex; justify-content: space-between; margin-top: 30px;';
+  buttons.style.cssText = `
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 8px;
+  `;
 
-  // Create "Stay Focused" button
   const stayButton = document.createElement('button');
   stayButton.innerText = 'Stay Focused';
   stayButton.style.cssText = `
-    background-color: #2ecc71;
+    background-color: #10b981;
     color: white;
     border: none;
-    padding: 12px 20px;
-    border-radius: 5px;
+    padding: 14px 28px;
+    border-radius: 10px;
     cursor: pointer;
     font-size: 16px;
-    font-weight: bold;
-    transition: all 0.3s ease;
-    margin-right: 10px;
+    font-weight: 600;
+    transition: all 0.2s;
+    min-width: 160px;
   `;
-  stayButton.onmouseover = () => { stayButton.style.backgroundColor = '#27ae60'; };
-  stayButton.onmouseout = () => { stayButton.style.backgroundColor = '#2ecc71'; };
+  stayButton.onmouseover = () => { stayButton.style.backgroundColor = '#059669'; };
+  stayButton.onmouseout = () => { stayButton.style.backgroundColor = '#10b981'; };
   stayButton.onclick = () => {
     overlay.style.opacity = '0';
     messageBox.style.transform = 'translateY(20px)';
@@ -98,53 +106,59 @@ function showWarningOverlay(focusAppName, delaySeconds) {
     }, 300);
   };
 
-  // Create "Proceed Anyway" button
   const proceedButton = document.createElement('button');
-  proceedButton.innerText = 'Proceed Anyway';
   proceedButton.style.cssText = `
-    background-color: #e74c3c;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 5px;
-    cursor: pointer;
+    background-color: transparent;
+    color: #94a3b8;
+    border: 1px solid #475569;
+    padding: 14px 28px;
+    border-radius: 10px;
+    cursor: not-allowed;
     font-size: 16px;
-    font-weight: bold;
-    transition: all 0.3s ease;
-    margin-left: 10px;
+    font-weight: 600;
+    transition: all 0.2s;
+    min-width: 160px;
+    opacity: 0.7;
   `;
-  proceedButton.onmouseover = () => { proceedButton.style.backgroundColor = '#c0392b'; };
-  proceedButton.onmouseout = () => { proceedButton.style.backgroundColor = '#e74c3c'; };
 
-  // Set up countdown
-  let countdown = delaySeconds;
-  proceedButton.innerText = `Proceed Anyway (${countdown}s)`;
+  let countdown = Math.max(0, parseInt(delaySeconds) || 3);
+  proceedButton.innerText = `Wait ${countdown}s`;
   proceedButton.disabled = true;
-  proceedButton.style.opacity = '0.5';
-  proceedButton.style.cursor = 'not-allowed';
 
   const countdownInterval = setInterval(() => {
-    countdown--;
-    proceedButton.innerText = `Proceed Anyway (${countdown}s)`;
+    countdown = Math.max(0, countdown - 1);
     
-    if (countdown <= 0) {
+    if (countdown > 0) {
+      proceedButton.innerText = `Wait ${countdown}s`;
+    } else {
       clearInterval(countdownInterval);
       proceedButton.disabled = false;
       proceedButton.style.opacity = '1';
       proceedButton.style.cursor = 'pointer';
+      proceedButton.style.backgroundColor = '#475569';
+      proceedButton.style.borderColor = '#475569';
+      proceedButton.style.color = '#f1f5f9';
       proceedButton.innerText = 'Proceed Anyway';
+
+      proceedButton.onmouseover = () => {
+        proceedButton.style.backgroundColor = '#64748b';
+        proceedButton.style.borderColor = '#64748b';
+      };
+      proceedButton.onmouseout = () => {
+        proceedButton.style.backgroundColor = '#475569';
+        proceedButton.style.borderColor = '#475569';
+      };
     }
   }, 1000);
 
   proceedButton.onclick = () => {
-    if (countdown <= 0) {
+    if (!proceedButton.disabled) {
       overlay.style.opacity = '0';
       messageBox.style.transform = 'translateY(20px)';
       setTimeout(() => overlay.remove(), 300);
     }
   };
 
-  // Assemble the overlay
   buttons.appendChild(stayButton);
   buttons.appendChild(proceedButton);
   messageBox.appendChild(title);
@@ -153,7 +167,6 @@ function showWarningOverlay(focusAppName, delaySeconds) {
   overlay.appendChild(messageBox);
   document.body.appendChild(overlay);
 
-  // Trigger entrance animation
   requestAnimationFrame(() => {
     overlay.style.opacity = '1';
     messageBox.style.transform = 'translateY(0)';

@@ -18,7 +18,7 @@ const defaultSettings = {
       { domain: "instagram.com", name: "Instagram" },
       { domain: "tiktok.com", name: "TikTok" }
     ],
-    delaySeconds: 5,
+    delaySeconds: 3,
     isInFocusMode: false,
     currentFocusApp: null,
     focusSessions: 0,
@@ -283,7 +283,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             const newState = !data.isInFocusMode;
             chrome.storage.local.set({ isInFocusMode: newState });
             updateIcon(newState);
-            sendResponse({ success: true, isInFocusMode: newState });
+            // Add catch to handle case where popup is closed
+            Promise.resolve(sendResponse({ success: true, isInFocusMode: newState })).catch(() => {});
         });
         return true;
     }
@@ -303,11 +304,11 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
                 focusedTabCount: 0
             });
             updateIcon(false);
-            // Notify popup to update
+            // Add catch to handle case where popup is closed
             chrome.runtime.sendMessage({
                 action: "focusStateChanged",
                 isInFocusMode: false
-            });
+            }).catch(() => {});
         } else {
             const currentFocus = getCurrentlyFocusingOn();
             await chrome.storage.local.set({

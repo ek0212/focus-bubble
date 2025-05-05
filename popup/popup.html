@@ -11,13 +11,13 @@
     <div id="main-panel">
       <header>
         <h1>Focus Bubble</h1>
-        <p class="tagline">Stay distraction-free while you work</p>
+        <p class="tagline">Block distractions</p>
       </header>
       
       <div class="status-container">
         <div class="status-indicator">
           <div id="status-circle" class="status inactive"></div>
-          <div id="status-text">Focus Mode: OFF</div>
+          <div id="status-text">Focus: OFF</div>
         </div>
         <label class="toggle">
           <input type="checkbox" id="focus-toggle">
@@ -26,15 +26,15 @@
       </div>
 
       <div class="current-app">
-        <p id="currently-focusing-on">Not focusing on anything</p>
+        <p id="currently-focusing-on">Not active</p>
       </div>
 
       <div class="divider"></div>
 
       <div class="stats">
-        <p>Focus sessions today: <span id="sessions-count">0</span></p>
-        <p>Distractions blocked: <span id="blocks-count">0</span></p>
-        <p class="stats-note">(Stats reset at midnight)</p>
+        <p>Sessions today: <span id="sessions-count">0</span></p>
+        <p>Blocked: <span id="blocks-count">0</span></p>
+        <p class="stats-note">(Resets at midnight)</p>
       </div>
 
       <footer>
@@ -50,11 +50,11 @@
 
       <div class="settings-section">
         <h3>Focus Apps</h3>
-        <p class="section-desc">Sites that trigger focus mode when active</p>
+        <p class="section-desc">Trigger focus mode when active</p>
         <div class="list-container">
           <div id="focus-apps-list" class="dynamic-list"></div>
           <div class="add-item">
-            <input type="text" id="new-focus-app-domain" placeholder="Enter website URL (e.g., docs.google.com)">
+            <input type="text" id="new-focus-app-domain" placeholder="Enter URL (e.g., docs.google.com)">
             <button id="add-focus-app">Add</button>
           </div>
         </div>
@@ -62,11 +62,11 @@
 
       <div class="settings-section">
         <h3>Distracting Sites</h3>
-        <p class="section-desc">Sites that will trigger warnings in focus mode</p>
+        <p class="section-desc">Show warning in focus mode</p>
         <div class="list-container">
           <div id="distracting-sites-list" class="dynamic-list"></div>
           <div class="add-item">
-            <input type="text" id="new-distraction-domain" placeholder="Enter website URL (e.g., twitter.com)">
+            <input type="text" id="new-distraction-domain" placeholder="Enter URL (e.g., twitter.com)">
             <button id="add-distraction">Add</button>
           </div>
         </div>
@@ -74,7 +74,7 @@
 
       <div class="settings-section">
         <h3>Warning Delay</h3>
-        <p class="section-desc">Seconds to wait before allowing access to distracting sites</p>
+        <p class="section-desc">Seconds before allowing access</p>
         <input type="number" id="delay-seconds" min="0" max="60">
       </div>
     </div>

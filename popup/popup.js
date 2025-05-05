@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatDomainName(domain) {
     return domain
       .split('.')
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .map(part => part.charAt(0).toLowerCase() + part.slice(1))
       .join('.');
   }
 
@@ -51,9 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Update current app display
       if (data.isInFocusMode && data.currentFocusApp) {
-        currentAppText.textContent = `Currently focused on: ${data.currentFocusApp.name}`;
+        currentAppText.textContent = `Focused: ${data.currentFocusApp.name}`;
       } else {
-        currentAppText.textContent = 'Not currently in a focus app';
+        currentAppText.textContent = 'Not active';
       }
       
       // Update stats
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
           updateStatusDisplay(response.isInFocusMode);
         }
       }
-    );
+    ).catch(() => {}); // Silently handle any messaging errors
   });
 
   // Listen for updates from background script
@@ -191,12 +191,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (message.action === "focusStateChanged") {
       updateStatusDisplay(message.isInFocusMode);
       if (!message.isInFocusMode) {
-        currentAppText.textContent = 'Not currently in a focus app';
+        currentAppText.textContent = 'Not active';
       }
       refreshStats();
     } else if (message.action === "statsUpdated") {
       refreshStats();
     }
+    // No need to return true since we're not using sendResponse
   });
 
   // Function to refresh stats display
@@ -212,11 +213,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isActive) {
       statusCircle.classList.remove('inactive');
       statusCircle.classList.add('active');
-      statusText.textContent = 'Focus Mode: ON';
+      statusText.textContent = 'Focus: ON';
     } else {
       statusCircle.classList.remove('active');
       statusCircle.classList.add('inactive');
-      statusText.textContent = 'Focus Mode: OFF';
+      statusText.textContent = 'Focus: OFF';
     }
   }
 
