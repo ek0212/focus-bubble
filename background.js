@@ -288,6 +288,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return true;
     }
+    if (message.action === "closeTab" && sender.tab) {
+        chrome.tabs.remove(sender.tab.id);
+    }
 });
 
 // Add tab removal listener

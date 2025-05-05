@@ -101,7 +101,7 @@ function showWarningOverlay(focusAppName, delaySeconds) {
     overlay.style.opacity = '0';
     messageBox.style.transform = 'translateY(20px)';
     setTimeout(() => {
-      window.history.back();
+      chrome.runtime.sendMessage({ action: "closeTab" });
       overlay.remove();
     }, 300);
   };
