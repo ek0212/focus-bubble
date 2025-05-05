@@ -22,7 +22,8 @@ const defaultSettings = {
     isInFocusMode: false,
     currentFocusApp: null,
     focusSessions: 0,
-    distractionsBlocked: 0
+    distractionsBlocked: 0,
+    temporarilyDisabled: false // New flag to track if user has chosen to proceed anyway
 };
 
 let focusedTabs = new Map(); // Maps tabId to {url, domain, timestamp}
@@ -80,7 +81,7 @@ function checkCurrentTab(tab) {
     const url = new URL(tab.url);
     const domain = url.hostname.replace('www.', '');
     
-    chrome.storage.local.get(['isEnabled', 'focusApps', 'distractingSites'], (settings) => {
+    chrome.storage.local.get(['isEnabled', 'focusApps', 'distractingSites', 'temporarilyDisabled'], (settings) => {
         if (!settings.isEnabled) return;
         
         // Check if this is a focus app
@@ -88,6 +89,11 @@ function checkCurrentTab(tab) {
             .find(app => domain.includes(app.domain));
         
         if (focusApp) {
+            // Reset temporary disable flag when returning to a focus app
+            if (settings.temporarilyDisabled) {
+                chrome.storage.local.set({ temporarilyDisabled: false });
+            }
+
             // Check if this is a new focus session
             const wasInFocusMode = focusedTabs.size > 0;
             
@@ -126,7 +132,7 @@ function checkCurrentTab(tab) {
             focusedTabs.delete(tab.id);
             
             // Check if this is a distraction site while in focus mode
-            if (focusedTabs.size > 0) { // Still in focus mode if we have other focus tabs
+            if (focusedTabs.size > 0 && !settings.temporarilyDisabled) { // Only check distractions if not temporarily disabled
                 const isDistraction = (settings.distractingSites || defaultSettings.distractingSites)
                     .some(site => domain.includes(site.domain));
                 
@@ -134,7 +140,7 @@ function checkCurrentTab(tab) {
                     handleDistraction(tab, settings);
                 }
             } else {
-                // No more focus tabs, disable focus mode
+                // No more focus tabs or temporarily disabled, disable focus mode
                 chrome.storage.local.set({ 
                     isInFocusMode: false,
                     currentFocusApp: null
@@ -154,8 +160,12 @@ function getCurrentlyFocusingOn() {
     
     if (appList.length === 1) {
         return { name: appList[0] };
+    } else if (appList.length === 2) {
+        return { name: `${appList[0]} and ${appList[1]}` };
+    } else {
+        const lastApp = appList.pop();
+        return { name: `${appList.join(', ')}, and ${lastApp}` };
     }
-    return { name: `${appList.join(' and ')}` };
 }
 
 // Helper function to handle distractions

@@ -65,7 +65,7 @@ function showWarningOverlay(focusAppName, delaySeconds) {
   `;
 
   const message = document.createElement('p');
-  message.innerText = `Currently in ${focusAppName}. Continue?`;
+  message.innerText = `Currently using: ${focusAppName}. Continue?`;
   message.style.cssText = `
     font-size: 18px;
     line-height: 1.6;
@@ -153,9 +153,11 @@ function showWarningOverlay(focusAppName, delaySeconds) {
 
   proceedButton.onclick = () => {
     if (!proceedButton.disabled) {
-      overlay.style.opacity = '0';
-      messageBox.style.transform = 'translateY(20px)';
-      setTimeout(() => overlay.remove(), 300);
+      chrome.storage.local.set({ temporarilyDisabled: true }, () => {
+        overlay.style.opacity = '0';
+        messageBox.style.transform = 'translateY(20px)';
+        setTimeout(() => overlay.remove(), 300);
+      });
     }
   };
 
