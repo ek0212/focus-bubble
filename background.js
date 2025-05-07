@@ -117,9 +117,7 @@ function checkCurrentTab(tab) {
                 .some(site => domain.includes(site.domain));
             
             // Show warning if focus mode is manually enabled OR if we have focus tabs open
-            if ((settings.isInFocusMode || focusedTabs.size > 0) && 
-                isDistraction && 
-                !temporarilyDisabledTabs.has(tab.id)) {
+            if (settings.isInFocusMode && isDistraction && !temporarilyDisabledTabs.has(tab.id)) {
                 handleDistraction(tab, settings);
             }
         }
@@ -265,7 +263,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     else if (message.action === "temporarilyDisable" && sender.tab) {
         temporarilyDisabledTabs.add(sender.tab.id);
-        sendResponse({ success: true });
+        // Check if the current tab is a focus app
+        chrome.tabs.get(sender.tab.id, (tab) => {
+            if (!tab || !tab.url) {
+                sendResponse({ success: true });
+                return;
+            }
+            const url = new URL(tab.url);
+            const domain = url.hostname.replace('www.', '');
+            chrome.storage.local.get(['focusApps'], (data) => {
+                const focusApps = data.focusApps || defaultSettings.focusApps;
+                const isFocusApp = focusApps.some(app => domain.includes(app.domain));
+                if (!isFocusApp) {
+                    // Turn off focus mode if not on a focus app
+                    chrome.storage.local.set({ isInFocusMode: false }, () => {
+                        updateIcon(false);
+                        chrome.runtime.sendMessage({ action: "statsUpdated" }).catch(() => {});
+                        sendResponse({ success: true });
+                    });
+                } else {
+                    sendResponse({ success: true });
+                }
+            });
+        });
+        return true;
     }
     else if (message.action === "toggleFocusMode") {
         chrome.storage.local.get(['isInFocusMode', 'focusSessions'], (data) => {

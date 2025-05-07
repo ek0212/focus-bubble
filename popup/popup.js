@@ -52,21 +52,19 @@ document.addEventListener('DOMContentLoaded', () => {
       // Set toggle state based on manual focus mode setting
       focusToggle.checked = data.isInFocusMode;
       updateStatusDisplay(data.isInFocusMode);
-      
-      // Update current app display if there is one
-      if (data.currentFocusApp) {
-        currentAppText.textContent = data.currentFocusApp.name;
+      // Update current app display if there is one and focus mode is on
+      if (data.isInFocusMode) {
+        getCurrentAppText((appText) => {
+          currentAppText.textContent = appText;
+        });
       } else {
-        currentAppText.textContent = data.isInFocusMode ? 'Focus Mode Active' : 'No app selected';
+        currentAppText.textContent = 'No app selected';
       }
-      
       // Update stats
       sessionsCount.textContent = data.focusSessions || 0;
-
       // Update lists
       updateList(focusAppsList, data.focusApps || [], 'focusApps');
       updateList(blockedAppsList, data.blockedApps || [], 'blockedApps');
-
       // Update delay seconds
       delaySeconds.value = data.delaySeconds || 3;
     });
@@ -250,7 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
       statusCircle.classList.add('active');
       statusText.textContent = 'Focus: ON';
       focusToggle.checked = true;
-      currentAppText.textContent = getCurrentAppText();
+      // Fetch and update current app text asynchronously
+      getCurrentAppText((appText) => {
+        currentAppText.textContent = appText;
+      });
     } else {
       statusCircle.classList.remove('active');
       statusCircle.classList.add('inactive');
@@ -260,13 +261,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Helper function to get current app text
-  function getCurrentAppText() {
+  // Helper function to get current app text (async)
+  function getCurrentAppText(callback) {
     chrome.storage.local.get(['currentFocusApp'], (data) => {
-        if (data.currentFocusApp) {
-            return data.currentFocusApp.name;
-        }
-        return 'Focus Mode Active';
+      if (data.currentFocusApp && data.currentFocusApp.name) {
+        callback(data.currentFocusApp.name);
+      } else {
+        callback('Focus Mode Active');
+      }
     });
   }
 

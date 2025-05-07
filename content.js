@@ -94,6 +94,9 @@ function showWarningOverlay(focusAppName, delaySeconds) {
     font-weight: 600;
     transition: all 0.2s;
     min-width: 160px;
+    width: 180px;
+    text-align: center;
+    display: inline-block;
   `;
   stayButton.onmouseover = () => { stayButton.style.backgroundColor = '#059669'; };
   stayButton.onmouseout = () => { stayButton.style.backgroundColor = '#10b981'; };
@@ -118,7 +121,10 @@ function showWarningOverlay(focusAppName, delaySeconds) {
     font-weight: 600;
     transition: all 0.2s;
     min-width: 160px;
+    width: 180px;
     opacity: 0.7;
+    text-align: center;
+    display: inline-block;
   `;
 
   let countdown = Math.max(0, parseInt(delaySeconds) || 3);
@@ -174,3 +180,5 @@ function showWarningOverlay(focusAppName, delaySeconds) {
     messageBox.style.transform = 'translateY(0)';
   });
 }
+
+console.log('Received showWarning message');
