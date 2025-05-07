@@ -49,15 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
       'blockedApps', 
       'delaySeconds'
     ], (data) => {
-      // Set toggle states
+      // Set toggle state based on manual focus mode setting
       focusToggle.checked = data.isInFocusMode;
       updateStatusDisplay(data.isInFocusMode);
       
-      // Update current app display
-      if (data.isInFocusMode && data.currentFocusApp) {
+      // Update current app display if there is one
+      if (data.currentFocusApp) {
         currentAppText.textContent = data.currentFocusApp.name;
       } else {
-        currentAppText.textContent = 'No app selected';
+        currentAppText.textContent = data.isInFocusMode ? 'Focus Mode Active' : 'No app selected';
       }
       
       // Update stats
@@ -250,12 +250,24 @@ document.addEventListener('DOMContentLoaded', () => {
       statusCircle.classList.add('active');
       statusText.textContent = 'Focus: ON';
       focusToggle.checked = true;
+      currentAppText.textContent = getCurrentAppText();
     } else {
       statusCircle.classList.remove('active');
       statusCircle.classList.add('inactive');
       statusText.textContent = 'Focus: OFF';
       focusToggle.checked = false;
+      currentAppText.textContent = 'No app selected';
     }
+  }
+
+  // Helper function to get current app text
+  function getCurrentAppText() {
+    chrome.storage.local.get(['currentFocusApp'], (data) => {
+        if (data.currentFocusApp) {
+            return data.currentFocusApp.name;
+        }
+        return 'Focus Mode Active';
+    });
   }
 
   // Initial load

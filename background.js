@@ -83,7 +83,7 @@ function checkCurrentTab(tab) {
     const url = new URL(tab.url);
     const domain = url.hostname.replace('www.', '');
     
-    chrome.storage.local.get(['isEnabled', 'focusApps', 'blockedApps'], (settings) => {
+    chrome.storage.local.get(['isEnabled', 'focusApps', 'blockedApps', 'isInFocusMode'], (settings) => {
         if (!settings.isEnabled) return;
         
         // Check if this is a focus app
@@ -94,9 +94,6 @@ function checkCurrentTab(tab) {
             // Reset temporary disable for this tab when returning to a focus app
             temporarilyDisabledTabs.delete(tab.id);
 
-            // Check if this is a new focus session
-            const wasInFocusMode = focusedTabs.size > 0;
-            
             // Add to focused tabs
             focusedTabs.set(tab.id, {
                 url: tab.url,
@@ -105,47 +102,25 @@ function checkCurrentTab(tab) {
                 appName: focusApp.name
             });
             
-            // If this is a new focus session, increment the counter
-            if (!wasInFocusMode) {
-                chrome.storage.local.get(['focusSessions'], (data) => {
-                    chrome.storage.local.set({ 
-                        focusSessions: (data.focusSessions || 0) + 1,
-                        isInFocusMode: true,
-                        currentFocusApp: getCurrentlyFocusingOn()
-                    }, () => {
-                        // Notify popup of updated stats
-                        chrome.runtime.sendMessage({
-                            action: "statsUpdated"
-                        }).catch(() => {});
-                    });
-                });
-            } else {
-                chrome.storage.local.set({ 
-                    isInFocusMode: true,
-                    currentFocusApp: getCurrentlyFocusingOn()
-                });
-            }
+            // Update current focus app
+            chrome.storage.local.set({ 
+                currentFocusApp: getCurrentlyFocusingOn()
+            });
             
             updateIcon(true);
         } else {
             // Remove from focused tabs if it was there
             focusedTabs.delete(tab.id);
             
-            // Check if this is a distraction site while in focus mode
-            if (focusedTabs.size > 0) {
-                const isDistraction = (settings.blockedApps || defaultSettings.blockedApps)
-                    .some(site => domain.includes(site.domain));
-                
-                if (isDistraction && !temporarilyDisabledTabs.has(tab.id)) { // Only show warning if tab is not temporarily disabled
-                    handleDistraction(tab, settings);
-                }
-            } else {
-                // No more focus tabs, disable focus mode
-                chrome.storage.local.set({ 
-                    isInFocusMode: false,
-                    currentFocusApp: null
-                });
-                updateIcon(false);
+            // Check if this is a distraction site
+            const isDistraction = (settings.blockedApps || defaultSettings.blockedApps)
+                .some(site => domain.includes(site.domain));
+            
+            // Show warning if focus mode is manually enabled OR if we have focus tabs open
+            if ((settings.isInFocusMode || focusedTabs.size > 0) && 
+                isDistraction && 
+                !temporarilyDisabledTabs.has(tab.id)) {
+                handleDistraction(tab, settings);
             }
         }
     });
@@ -293,10 +268,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true });
     }
     else if (message.action === "toggleFocusMode") {
-        chrome.storage.local.get(['isInFocusMode'], (data) => {
+        chrome.storage.local.get(['isInFocusMode', 'focusSessions'], (data) => {
             const newState = !data.isInFocusMode;
-            chrome.storage.local.set({ isInFocusMode: newState });
+            // Increment sessions count when turning focus mode ON
+            const newSessions = newState ? (data.focusSessions || 0) + 1 : data.focusSessions || 0;
+            
+            chrome.storage.local.set({ 
+                isInFocusMode: newState,
+                focusSessions: newSessions 
+            });
             updateIcon(newState);
+            
+            // Notify popup of the state change
+            chrome.runtime.sendMessage({
+                action: "statsUpdated"
+            }).catch(() => {});
+            
             // Add catch to handle case where popup is closed
             Promise.resolve(sendResponse({ success: true, isInFocusMode: newState })).catch(() => {});
         });
@@ -314,19 +301,12 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     if (focusedTabs.has(tabId)) {
         focusedTabs.delete(tabId);
         
-        // Update focus mode if no more focus tabs
+        // Only update current focus app info, maintain manual toggle state
         if (focusedTabs.size === 0) {
             await chrome.storage.local.set({ 
-                isInFocusMode: false,
                 currentFocusApp: null,
                 focusedTabCount: 0
             });
-            updateIcon(false);
-            // Add catch to handle case where popup is closed
-            chrome.runtime.sendMessage({
-                action: "focusStateChanged",
-                isInFocusMode: false
-            }).catch(() => {});
         } else {
             const currentFocus = getCurrentlyFocusingOn();
             await chrome.storage.local.set({
