@@ -153,7 +153,7 @@ function showWarningOverlay(focusAppName, delaySeconds) {
 
   proceedButton.onclick = () => {
     if (!proceedButton.disabled) {
-      chrome.storage.local.set({ temporarilyDisabled: true }, () => {
+      chrome.runtime.sendMessage({ action: "temporarilyDisable" }, () => {
         overlay.style.opacity = '0';
         messageBox.style.transform = 'translateY(20px)';
         setTimeout(() => overlay.remove(), 300);

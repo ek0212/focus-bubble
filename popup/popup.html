@@ -8,74 +8,66 @@
 </head>
 <body>
   <div class="container">
-    <div id="main-panel">
-      <header>
-        <h1>Focus Bubble</h1>
-        <p class="tagline">Block distractions</p>
-      </header>
-      
-      <div class="status-container">
-        <div class="status-indicator">
-          <div id="status-circle" class="status inactive"></div>
-          <div id="status-text">Focus: OFF</div>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="focus-toggle">
-          <span class="slider round"></span>
-        </label>
+    <header>
+      <h1>Focus Bubble</h1>
+      <div class="tagline">Stay focused on what matters</div>
+    </header>
+
+    <div class="status-container">
+      <div class="status-indicator">
+        <div class="status"></div>
+        <span id="status-text">Inactive</span>
       </div>
-
-      <div class="current-app">
-        <p id="currently-focusing-on">Not active</p>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="stats">
-        <p>Sessions today: <span id="sessions-count">0</span></p>
-        <p>Blocked: <span id="blocks-count">0</span></p>
-        <p class="stats-note">(Resets at midnight)</p>
-      </div>
-
-      <footer>
-        <button id="settings-btn">Settings</button>
-      </footer>
+      <label class="toggle">
+        <input type="checkbox" id="focus-toggle">
+        <span class="slider"></span>
+      </label>
     </div>
 
-    <div id="settings-panel" class="hidden">
-      <header>
-        <button id="back-btn" class="back-button">&larr; Back</button>
-        <h2>Settings</h2>
-      </header>
+    <div class="current-app">
+      Currently focused on: <strong id="currently-focusing-on">No app selected</strong>
+    </div>
 
+    <div class="stats">
+      <p>Focus sessions <span id="sessions-count">0</span></p>
+      <div class="stats-note">Stats reset at midnight</div>
+    </div>
+
+    <footer>
+      <button id="settings-btn">Settings</button>
+    </footer>
+
+    <div id="settings-panel" class="hidden">
+      <button id="back-btn" class="back-button">← Back</button>
+      
       <div class="settings-section">
         <h3>Focus Apps</h3>
-        <p class="section-desc">Trigger focus mode when active</p>
+        <div class="section-desc">Add apps you want to focus on</div>
         <div class="list-container">
-          <div id="focus-apps-list" class="dynamic-list"></div>
+          <div class="dynamic-list" id="focus-apps-list"></div>
           <div class="add-item">
-            <input type="text" id="new-focus-app-domain" placeholder="Enter URL (e.g., docs.google.com)">
+            <input type="text" id="new-focus-app-domain" placeholder="Enter website domain (e.g., docs.google.com)">
             <button id="add-focus-app">Add</button>
           </div>
         </div>
       </div>
 
       <div class="settings-section">
-        <h3>Distracting Sites</h3>
-        <p class="section-desc">Show warning in focus mode</p>
+        <h3>Blocked Apps</h3>
+        <div class="section-desc">Add apps you want to block while focusing</div>
         <div class="list-container">
-          <div id="distracting-sites-list" class="dynamic-list"></div>
+          <div class="dynamic-list" id="blocked-apps-list"></div>
           <div class="add-item">
-            <input type="text" id="new-distraction-domain" placeholder="Enter URL (e.g., twitter.com)">
-            <button id="add-distraction">Add</button>
+            <input type="text" id="new-blocked-app-domain" placeholder="Enter website domain (e.g., twitter.com)">
+            <button id="add-blocked-app">Add</button>
           </div>
         </div>
       </div>
 
       <div class="settings-section">
-        <h3>Warning Delay</h3>
-        <p class="section-desc">Seconds before allowing access</p>
-        <input type="number" id="delay-seconds" min="0" max="60">
+        <h3>Focus Delay</h3>
+        <div class="section-desc">Seconds before blocking takes effect</div>
+        <input type="number" id="delay-seconds" min="0" max="60" value="3">
       </div>
     </div>
   </div>
