@@ -16,20 +16,19 @@
     <div class="status-container">
       <div class="status-indicator">
         <div class="status"></div>
-        <span id="status-text">Inactive</span>
+        <span id="status-text">Not focusing</span>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="focus-toggle">
-        <span class="slider"></span>
-      </label>
+      <div id="temporary-disable-timer" class="temporary-disable-timer hidden">
+        Proceed time left: <span id="timer-value">5m</span>
+      </div>
     </div>
 
     <div class="current-app">
-      Currently focused on: <strong id="currently-focusing-on">No app selected</strong>
+      Currently focused on: <strong id="currently-focusing-on">No focus apps open</strong>
     </div>
 
     <div class="stats">
-      <p>Focus sessions <span id="sessions-count">0</span></p>
+      <p>Focus sessions today: <span id="sessions-count">0</span></p>
       <div class="stats-note">Stats reset at midnight</div>
     </div>
 
@@ -37,38 +36,38 @@
       <button id="settings-btn">Settings</button>
     </footer>
 
-    <div id="settings-panel" class="hidden">
-      <button id="back-btn" class="back-button">← Back</button>
-      
-      <div class="settings-section">
+    <!-- Settings Panel -->
+    <div id="settings-panel" class="settings-panel hidden">
+      <header>
+        <button id="back-btn">&larr; Back</button>
+        <h2>Settings</h2>
+      </header>
+
+      <section>
         <h3>Focus Apps</h3>
-        <div class="section-desc">Add apps you want to focus on</div>
-        <div class="list-container">
-          <div class="dynamic-list" id="focus-apps-list"></div>
-          <div class="add-item">
-            <input type="text" id="new-focus-app-domain" placeholder="Enter website domain (e.g., docs.google.com)">
-            <button id="add-focus-app">Add</button>
-          </div>
+        <div id="focus-apps-list" class="apps-list"></div>
+        <div class="add-app">
+          <input type="text" id="new-focus-app-domain" placeholder="Enter domain (e.g., docs.google.com)">
+          <button id="add-focus-app">Add</button>
         </div>
-      </div>
+      </section>
 
-      <div class="settings-section">
+      <section>
         <h3>Blocked Apps</h3>
-        <div class="section-desc">Add apps you want to block while focusing</div>
-        <div class="list-container">
-          <div class="dynamic-list" id="blocked-apps-list"></div>
-          <div class="add-item">
-            <input type="text" id="new-blocked-app-domain" placeholder="Enter website domain (e.g., twitter.com)">
-            <button id="add-blocked-app">Add</button>
-          </div>
+        <div id="blocked-apps-list" class="apps-list"></div>
+        <div class="add-app">
+          <input type="text" id="new-blocked-app-domain" placeholder="Enter domain (e.g., twitter.com)">
+          <button id="add-blocked-app">Add</button>
         </div>
-      </div>
+      </section>
 
-      <div class="settings-section">
-        <h3>Focus Delay</h3>
-        <div class="section-desc">Seconds before blocking takes effect</div>
-        <input type="number" id="delay-seconds" min="0" max="60" value="3">
-      </div>
+      <section>
+        <h3>Proceed Timeout</h3>
+        <div class="delay-setting">
+          <label for="proceed-timeout-minutes">How long to allow distractions (minutes):</label>
+          <input type="number" id="proceed-timeout-minutes" min="1" max="60" value="5">
+        </div>
+      </section>
     </div>
   </div>
   <script src="popup.js"></script>

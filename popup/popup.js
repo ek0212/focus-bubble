@@ -2,10 +2,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Main panel elements
   const statusCircle = document.querySelector('.status');
   const statusText = document.getElementById('status-text');
-  const focusToggle = document.getElementById('focus-toggle');
   const currentAppText = document.getElementById('currently-focusing-on');
   const sessionsCount = document.getElementById('sessions-count');
   const settingsBtn = document.getElementById('settings-btn');
+  const temporaryDisableTimer = document.getElementById('temporary-disable-timer');
+  const timerValue = document.getElementById('timer-value');
 
   // Settings panel elements
   const settingsPanel = document.getElementById('settings-panel');
@@ -16,7 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const blockedAppsList = document.getElementById('blocked-apps-list');
   const newBlockedAppDomain = document.getElementById('new-blocked-app-domain');
   const addBlockedAppBtn = document.getElementById('add-blocked-app');
-  const delaySeconds = document.getElementById('delay-seconds');
+  const proceedTimeoutMinutes = document.getElementById('proceed-timeout-minutes');
+
+  // Verify required elements exist
+  if (!statusCircle || !statusText || !currentAppText || !sessionsCount || 
+      !temporaryDisableTimer || !timerValue) {
+    console.error('Required DOM elements not found');
+    return;
+  }
 
   // Helper function to extract domain from URL
   function extractDomain(url) {
@@ -39,39 +47,114 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('.');
   }
 
+  // Helper function to format time remaining
+  function formatTimeRemaining(seconds) {
+    if (seconds < 60) {
+      return seconds + 's';
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return remainingSeconds > 0 ? 
+      `${minutes}m ${remainingSeconds}s` : 
+      `${minutes}m`;
+  }
+
+  // Update status display
+  function updateStatusDisplay(isActive) {
+    if (isActive) {
+      statusCircle.classList.remove('inactive');
+      statusCircle.classList.add('active');
+      statusText.textContent = 'Focusing';
+      statusText.style.color = '#10b981';
+    } else {
+      statusCircle.classList.remove('active');
+      statusCircle.classList.add('inactive');
+      statusText.textContent = 'Not focusing';
+      statusText.style.color = '#94a3b8';
+    }
+  }
+
   // Load current state and settings
   function loadSettings() {
     chrome.storage.local.get([
-      'isInFocusMode', 
       'currentFocusApp', 
       'focusSessions',
       'focusApps', 
-      'blockedApps', 
-      'delaySeconds'
+      'blockedApps',
+      'proceedTimeoutMinutes',
+      'temporarilyDisabledUntil'
     ], (data) => {
-      // Set toggle state based on manual focus mode setting
-      focusToggle.checked = data.isInFocusMode;
-      updateStatusDisplay(data.isInFocusMode);
-      // Update current app display if there is one and focus mode is on
-      if (data.isInFocusMode) {
-        getCurrentAppText((appText) => {
-          currentAppText.textContent = appText;
-        });
+      // Update current app display
+      if (data.currentFocusApp && data.currentFocusApp.name) {
+        currentAppText.textContent = data.currentFocusApp.name;
+        updateStatusDisplay(true);
       } else {
-        currentAppText.textContent = 'No app selected';
+        currentAppText.textContent = 'No focus apps open';
+        updateStatusDisplay(false);
       }
+
+      // Check temporary disable timer
+      if (data.temporarilyDisabledUntil) {
+        const remainingTime = Math.max(0, Math.ceil((data.temporarilyDisabledUntil - Date.now()) / 1000));
+        if (remainingTime > 0) {
+          showTemporaryDisableTimer(remainingTime);
+        } else {
+          hideTemporaryDisableTimer();
+        }
+      } else {
+        hideTemporaryDisableTimer();
+      }
+      
       // Update stats
       sessionsCount.textContent = data.focusSessions || 0;
-      // Update lists
-      updateList(focusAppsList, data.focusApps || [], 'focusApps');
-      updateList(blockedAppsList, data.blockedApps || [], 'blockedApps');
-      // Update delay seconds
-      delaySeconds.value = data.delaySeconds || 3;
+      
+      // Update lists if elements exist
+      if (focusAppsList) {
+        updateList(focusAppsList, data.focusApps || [], 'focusApps');
+      }
+      if (blockedAppsList) {
+        updateList(blockedAppsList, data.blockedApps || [], 'blockedApps');
+      }
+      
+      // Update settings if element exists
+      if (proceedTimeoutMinutes) {
+        proceedTimeoutMinutes.value = data.proceedTimeoutMinutes || 5;
+      }
     });
+  }
+
+  function showTemporaryDisableTimer(seconds) {
+    temporaryDisableTimer.classList.remove('hidden');
+    timerValue.textContent = formatTimeRemaining(seconds);
+    
+    if (window.timerInterval) {
+      clearInterval(window.timerInterval);
+    }
+    
+    if (seconds > 0) {
+      window.timerInterval = setInterval(() => {
+        seconds--;
+        if (seconds <= 0) {
+          hideTemporaryDisableTimer();
+        } else {
+          timerValue.textContent = formatTimeRemaining(seconds);
+        }
+      }, 1000);
+    }
+  }
+
+  function hideTemporaryDisableTimer() {
+    temporaryDisableTimer.classList.add('hidden');
+    if (window.timerInterval) {
+      clearInterval(window.timerInterval);
+      window.timerInterval = null;
+    }
   }
 
   // Update a dynamic list
   function updateList(listElement, items, listType) {
+    if (!listElement) return;
+    
     listElement.innerHTML = '';
     items.forEach(item => {
       const listItem = document.createElement('div');
@@ -119,13 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
         name: formatDomainName(domain)
       };
 
-      if (listType === 'focusApps') {
+      if (listType === 'focusApps' && newFocusAppDomain) {
         focusApps.push(newItem);
         chrome.storage.local.set({ focusApps }, () => {
           loadSettings();
           newFocusAppDomain.value = '';
         });
-      } else if (listType === 'blockedApps') {
+      } else if (listType === 'blockedApps' && newBlockedAppDomain) {
         blockedApps.push(newItem);
         chrome.storage.local.set({ blockedApps }, () => {
           loadSettings();
@@ -137,17 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Remove item from a list
   function removeItem(domain, listType) {
-    chrome.storage.local.get(['focusApps', 'blockedApps', 'currentFocusApp'], (data) => {
+    chrome.storage.local.get(['focusApps', 'blockedApps'], (data) => {
       if (listType === 'focusApps') {
         const items = data.focusApps || [];
-        // Check if removing currently focused app
-        if (data.currentFocusApp && data.currentFocusApp.domain === domain) {
-          if (!confirm('This app is currently in focus. Removing it will end your focus session. Continue?')) {
-            return;
-          }
-          // End focus session
-          chrome.runtime.sendMessage({ action: "toggleFocusMode" });
-        }
         const updatedItems = items.filter(item => item.domain !== domain);
         chrome.storage.local.set({ focusApps: updatedItems }, loadSettings);
       } else if (listType === 'blockedApps') {
@@ -158,120 +233,79 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Settings panel navigation
-  settingsBtn.addEventListener('click', () => {
-    settingsPanel.classList.remove('hidden');
-  });
-
-  backBtn.addEventListener('click', () => {
-    settingsPanel.classList.add('hidden');
-  });
-
-  // Add new focus app
-  addFocusAppBtn.addEventListener('click', () => {
-    handleAddItem(newFocusAppDomain, 'focusApps');
-  });
-
-  newFocusAppDomain.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      handleAddItem(newFocusAppDomain, 'focusApps');
-    }
-  });
-
-  // Add new blocked app
-  addBlockedAppBtn.addEventListener('click', () => {
-    handleAddItem(newBlockedAppDomain, 'blockedApps');
-  });
-
-  newBlockedAppDomain.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      handleAddItem(newBlockedAppDomain, 'blockedApps');
-    }
-  });
-
   // Handle adding items
   function handleAddItem(input, listType) {
+    if (!input) return;
     const domain = input.value.trim();
     if (domain) {
       addItem(domain, listType);
     }
   }
 
-  // Update delay seconds
-  delaySeconds.addEventListener('change', () => {
-    const value = parseInt(delaySeconds.value, 10);
-    if (!isNaN(value) && value >= 0 && value <= 60) {
-      chrome.storage.local.set({ delaySeconds: value });
-    }
-  });
-
-  // Toggle focus mode
-  focusToggle.addEventListener('change', () => {
-    chrome.runtime.sendMessage(
-      { action: "toggleFocusMode" },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          console.debug("Error sending message:", chrome.runtime.lastError.message);
-          return;
-        }
-        if (response && response.success) {
-          updateStatusDisplay(response.isInFocusMode);
-        }
-      }
-    );
-  });
-
-  // Listen for updates from background script
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.action === "focusStateChanged") {
-      updateStatusDisplay(message.isInFocusMode);
-      if (!message.isInFocusMode) {
-        currentAppText.textContent = 'No app selected';
-      }
-      refreshStats();
-    } else if (message.action === "statsUpdated") {
-      refreshStats();
-    }
-  });
-
-  // Function to refresh stats display
-  function refreshStats() {
-    chrome.storage.local.get(['focusSessions'], (data) => {
-      sessionsCount.textContent = data.focusSessions || 0;
+  // Add event listeners only if elements exist
+  if (settingsBtn && settingsPanel) {
+    settingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.remove('hidden');
     });
   }
 
-  // Helper function to update status display
-  function updateStatusDisplay(isActive) {
-    if (isActive) {
-      statusCircle.classList.remove('inactive');
-      statusCircle.classList.add('active');
-      statusText.textContent = 'Focus: ON';
-      focusToggle.checked = true;
-      // Fetch and update current app text asynchronously
-      getCurrentAppText((appText) => {
-        currentAppText.textContent = appText;
-      });
-    } else {
-      statusCircle.classList.remove('active');
-      statusCircle.classList.add('inactive');
-      statusText.textContent = 'Focus: OFF';
-      focusToggle.checked = false;
-      currentAppText.textContent = 'No app selected';
-    }
+  if (backBtn && settingsPanel) {
+    backBtn.addEventListener('click', () => {
+      settingsPanel.classList.add('hidden');
+    });
   }
 
-  // Helper function to get current app text (async)
-  function getCurrentAppText(callback) {
-    chrome.storage.local.get(['currentFocusApp'], (data) => {
-      if (data.currentFocusApp && data.currentFocusApp.name) {
-        callback(data.currentFocusApp.name);
-      } else {
-        callback('Focus Mode Active');
+  // Add focus app event listeners
+  if (addFocusAppBtn && newFocusAppDomain) {
+    addFocusAppBtn.addEventListener('click', () => {
+      handleAddItem(newFocusAppDomain, 'focusApps');
+    });
+
+    newFocusAppDomain.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleAddItem(newFocusAppDomain, 'focusApps');
       }
+    });
+  }
+
+  // Add blocked app event listeners
+  if (addBlockedAppBtn && newBlockedAppDomain) {
+    addBlockedAppBtn.addEventListener('click', () => {
+      handleAddItem(newBlockedAppDomain, 'blockedApps');
+    });
+
+    newBlockedAppDomain.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleAddItem(newBlockedAppDomain, 'blockedApps');
+      }
+    });
+  }
+
+  // Update proceed timeout minutes
+  if (proceedTimeoutMinutes) {
+    proceedTimeoutMinutes.addEventListener('change', () => {
+      const value = Math.min(60, Math.max(1, parseInt(proceedTimeoutMinutes.value, 10) || 5));
+      proceedTimeoutMinutes.value = value;
+      chrome.storage.local.set({ proceedTimeoutMinutes: value });
     });
   }
 
   // Initial load
   loadSettings();
+
+  // Listen for changes
+  chrome.storage.onChanged.addListener((changes) => {
+    loadSettings();
+  });
+
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'resetCounters') {
+        chrome.storage.local.set({
+            focusSessions: 0,
+            distractionsBlocked: 0
+        });
+    } else if (alarm.name === 'temporaryDisableExpired') {
+        chrome.storage.local.set({ temporarilyDisabledUntil: null });
+    }
+  });
 });

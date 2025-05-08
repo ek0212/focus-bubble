@@ -1,6 +1,5 @@
 // Default settings - will be customizable later
 const defaultSettings = {
-    isEnabled: true,
     focusApps: [
       { domain: "docs.google.com", name: "Google Docs" },
       { domain: "notion.so", name: "Notion" },
@@ -17,22 +16,23 @@ const defaultSettings = {
       { domain: "facebook.com", name: "Facebook" },
       { domain: "instagram.com", name: "Instagram" },
       { domain: "tiktok.com", name: "TikTok" },
-      { domain: "slack.com", name: "Slack" },
-      { domain: "linkedin.com", name: "LinkedIn" }
+      { domain: "slack.com", name: "Slack" }
     ],
-    delaySeconds: 3,
-    isInFocusMode: false,
+    proceedTimeoutMinutes: 5,
     currentFocusApp: null,
     focusSessions: 0,
-    temporarilyDisabled: false
+    temporarilyDisabledUntil: null
 };
+
+// Constants
+const PROCEED_WAIT_SECONDS = 3;
 
 let focusedTabs = new Map(); // Maps tabId to {url, domain, timestamp}
 let contentScriptReadyTabs = new Set(); // Map to track which tabs have content scripts ready
-let temporarilyDisabledTabs = new Set(); // Track temporarily disabled tabs
 
 // Initialize settings
 chrome.runtime.onInstalled.addListener(() => {
+    // Initialize with default settings
     chrome.storage.local.set(defaultSettings);
     
     // Reset counters at midnight
@@ -48,21 +48,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         chrome.storage.local.set({
             focusSessions: 0,
             distractionsBlocked: 0
-        }, () => {
-            // Notify popup of reset stats
-            chrome.runtime.sendMessage({
-                action: "statsUpdated"
-            }).catch(() => {});
+        });
+    } else if (alarm.name === 'temporaryDisableExpired') {
+        chrome.storage.local.set({ temporarilyDisabledUntil: null }, () => {
+            // Recheck current tab when temporary disable expires
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                    checkCurrentTab(tabs[0]);
+                }
+            });
         });
     }
 });
-
-function getNextMidnight() {
-    const now = new Date();
-    const midnight = new Date(now);
-    midnight.setHours(24, 0, 0, 0);
-    return midnight.getTime();
-}
 
 // Listen for tab updates
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -76,52 +73,70 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
     chrome.tabs.get(tabId, checkCurrentTab);
 });
 
-// Listen for new tab creation
-function checkCurrentTab(tab) {
-    if (!tab.url) return;
+// Function to check if temporary disable has expired
+async function isTemporarilyDisabled() {
+    const data = await chrome.storage.local.get(['temporarilyDisabledUntil']);
+    if (!data.temporarilyDisabledUntil) return false;
+    return Date.now() < data.temporarilyDisabledUntil;
+}
+
+// Check current tab function
+async function checkCurrentTab(tab) {
+    if (!tab || !tab.url) return;
     
     const url = new URL(tab.url);
     const domain = url.hostname.replace('www.', '');
     
-    chrome.storage.local.get(['isEnabled', 'focusApps', 'blockedApps', 'isInFocusMode'], (settings) => {
-        if (!settings.isEnabled) return;
+    const settings = await chrome.storage.local.get(['focusApps', 'blockedApps', 'currentFocusApp']);
+    const focusApps = settings.focusApps || defaultSettings.focusApps;
+    const blockedApps = settings.blockedApps || defaultSettings.blockedApps;
+    
+    // Check if this is a focus app
+    const focusApp = focusApps.find(app => domain.includes(app.domain));
+    
+    if (focusApp) {
+        // Add to focused tabs
+        focusedTabs.set(tab.id, {
+            url: tab.url,
+            domain: domain,
+            timestamp: Date.now(),
+            appName: focusApp.name
+        });
         
-        // Check if this is a focus app
-        const focusApp = (settings.focusApps || defaultSettings.focusApps)
-            .find(app => domain.includes(app.domain));
-        
-        if (focusApp) {
-            // Reset temporary disable for this tab when returning to a focus app
-            temporarilyDisabledTabs.delete(tab.id);
-
-            // Add to focused tabs
-            focusedTabs.set(tab.id, {
-                url: tab.url,
-                domain: domain,
-                timestamp: Date.now(),
-                appName: focusApp.name
+        // Update current focus app and increment sessions if needed
+        const currentFocus = getCurrentlyFocusingOn();
+        if (!settings.currentFocusApp) {
+            // New focus session started
+            chrome.storage.local.get(['focusSessions'], (data) => {
+                chrome.storage.local.set({ 
+                    focusSessions: (data.focusSessions || 0) + 1,
+                    currentFocusApp: currentFocus
+                });
             });
-            
-            // Update current focus app
-            chrome.storage.local.set({ 
-                currentFocusApp: getCurrentlyFocusingOn()
-            });
-            
-            updateIcon(true);
         } else {
-            // Remove from focused tabs if it was there
-            focusedTabs.delete(tab.id);
-            
-            // Check if this is a distraction site
-            const isDistraction = (settings.blockedApps || defaultSettings.blockedApps)
-                .some(site => domain.includes(site.domain));
-            
-            // Show warning if focus mode is manually enabled OR if we have focus tabs open
-            if (settings.isInFocusMode && isDistraction && !temporarilyDisabledTabs.has(tab.id)) {
-                handleDistraction(tab, settings);
-            }
+            await chrome.storage.local.set({ currentFocusApp: currentFocus });
         }
-    });
+        
+        updateIcon(true);
+    } else {
+        // Remove from focused tabs if it was there
+        focusedTabs.delete(tab.id);
+        
+        // Check if this is a distraction site
+        const isDistraction = blockedApps.some(site => domain.includes(site.domain));
+        
+        // Show warning if we have focus tabs open and this is a distraction site
+        if (focusedTabs.size > 0 && isDistraction && !(await isTemporarilyDisabled())) {
+            handleDistraction(tab);
+        }
+        
+        // Update icon and current focus app
+        const currentFocus = getCurrentlyFocusingOn();
+        await chrome.storage.local.set({ 
+            currentFocusApp: currentFocus
+        });
+        updateIcon(focusedTabs.size > 0);
+    }
 }
 
 // Helper function to get current focus status
@@ -142,8 +157,10 @@ function getCurrentlyFocusingOn() {
 }
 
 // Helper function to handle distractions
-async function handleDistraction(tab, settings) {
+async function handleDistraction(tab) {
     const currentFocus = getCurrentlyFocusingOn();
+    const settings = await chrome.storage.local.get(['proceedTimeoutMinutes']);
+    const proceedTimeoutMinutes = settings.proceedTimeoutMinutes || defaultSettings.proceedTimeoutMinutes;
 
     // Inject content script and wait for it to be ready
     const injectContentScript = async (tabId) => {
@@ -162,7 +179,6 @@ async function handleDistraction(tab, settings) {
         }
 
         try {
-            // Inject the content script
             await chrome.scripting.executeScript({
                 target: { tabId },
                 func: () => {
@@ -175,7 +191,6 @@ async function handleDistraction(tab, settings) {
                 files: ['content.js']
             });
 
-            // Wait a moment for the script to initialize
             await new Promise(resolve => setTimeout(resolve, 50));
         } catch {
             if (chrome.runtime.lastError) {
@@ -184,41 +199,18 @@ async function handleDistraction(tab, settings) {
         }
     };
 
-    // Make sure content script is injected
     await injectContentScript(tab.id);
 
     try {
-        // Update distractions counter
-        await new Promise((resolve) => {
-            chrome.storage.local.get(['distractionsBlocked'], (data) => {
-                if (chrome.runtime.lastError) {
-                    console.debug("Storage get failed:", chrome.runtime.lastError.message);
-                    resolve();
-                    return;
-                }
-                chrome.storage.local.set({ 
-                    distractionsBlocked: (data.distractionsBlocked || 0) + 1 
-                }, () => {
-                    if (chrome.runtime.lastError) {
-                        console.debug("Storage set failed:", chrome.runtime.lastError.message);
-                    } else {
-                        chrome.runtime.sendMessage({
-                            action: "statsUpdated"
-                        }, () => {
-                            if (chrome.runtime.lastError) {
-                                console.debug("Stats update message failed:", chrome.runtime.lastError.message);
-                            }
-                        });
-                    }
-                    resolve();
-                });
+        await chrome.storage.local.get(['distractionsBlocked'], (data) => {
+            chrome.storage.local.set({ 
+                distractionsBlocked: (data.distractionsBlocked || 0) + 1 
             });
         });
     } catch {
         // Silent fail if counter update fails
     }
 
-    // Try to send the message multiple times if needed
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 100;
 
@@ -228,17 +220,17 @@ async function handleDistraction(tab, settings) {
                 chrome.tabs.sendMessage(tab.id, {
                     action: "showWarning",
                     focusAppName: currentFocus.name,
-                    delaySeconds: settings.delaySeconds
+                    proceedWaitSeconds: PROCEED_WAIT_SECONDS,
+                    proceedTimeoutMinutes: proceedTimeoutMinutes
                 }, (response) => {
                     if (chrome.runtime.lastError) {
-                        console.debug("No receiving end — skipping:", chrome.runtime.lastError.message);
                         reject(chrome.runtime.lastError);
                     } else {
                         resolve(response);
                     }
                 });
             });
-            break; // Message sent successfully
+            break;
         } catch (e) {
             if (i < MAX_RETRIES - 1) {
                 await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
@@ -249,64 +241,29 @@ async function handleDistraction(tab, settings) {
   
 // Function to update the extension icon based on focus state
 function updateIcon(isFocused) {
-  const iconPath = isFocused ? 
-    { path: { 16: "icons/icon16.png", 48: "icons/icon48.png", 128: "icons/icon128.png" } } :
-    { path: { 16: "icons/icon16-inactive.png", 48: "icons/icon48-inactive.png", 128: "icons/icon128-inactive.png" } };
-  
-  chrome.action.setIcon(iconPath);
+    const iconPath = isFocused ? 
+        { path: { 16: "icons/icon16.png", 48: "icons/icon48.png", 128: "icons/icon128.png" } } :
+        { path: { 16: "icons/icon16-inactive.png", 48: "icons/icon48-inactive.png", 128: "icons/icon128-inactive.png" } };
+    
+    chrome.action.setIcon(iconPath);
 }
 
-// Listen for messages from popup and content script
+// Listen for messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "contentScriptReady" && sender.tab) {
         contentScriptReadyTabs.add(sender.tab.id);
     }
     else if (message.action === "temporarilyDisable" && sender.tab) {
-        temporarilyDisabledTabs.add(sender.tab.id);
-        // Check if the current tab is a focus app
-        chrome.tabs.get(sender.tab.id, (tab) => {
-            if (!tab || !tab.url) {
-                sendResponse({ success: true });
-                return;
-            }
-            const url = new URL(tab.url);
-            const domain = url.hostname.replace('www.', '');
-            chrome.storage.local.get(['focusApps'], (data) => {
-                const focusApps = data.focusApps || defaultSettings.focusApps;
-                const isFocusApp = focusApps.some(app => domain.includes(app.domain));
-                if (!isFocusApp) {
-                    // Turn off focus mode if not on a focus app
-                    chrome.storage.local.set({ isInFocusMode: false }, () => {
-                        updateIcon(false);
-                        chrome.runtime.sendMessage({ action: "statsUpdated" }).catch(() => {});
-                        sendResponse({ success: true });
-                    });
-                } else {
-                    sendResponse({ success: true });
-                }
+        chrome.storage.local.get(['proceedTimeoutMinutes'], async (data) => {
+            const timeoutMinutes = data.proceedTimeoutMinutes || defaultSettings.proceedTimeoutMinutes;
+            const disabledUntil = Date.now() + (timeoutMinutes * 60 * 1000);
+            
+            await chrome.storage.local.set({ temporarilyDisabledUntil: disabledUntil });
+            chrome.alarms.create('temporaryDisableExpired', {
+                when: disabledUntil
             });
-        });
-        return true;
-    }
-    else if (message.action === "toggleFocusMode") {
-        chrome.storage.local.get(['isInFocusMode', 'focusSessions'], (data) => {
-            const newState = !data.isInFocusMode;
-            // Increment sessions count when turning focus mode ON
-            const newSessions = newState ? (data.focusSessions || 0) + 1 : data.focusSessions || 0;
             
-            chrome.storage.local.set({ 
-                isInFocusMode: newState,
-                focusSessions: newSessions 
-            });
-            updateIcon(newState);
-            
-            // Notify popup of the state change
-            chrome.runtime.sendMessage({
-                action: "statsUpdated"
-            }).catch(() => {});
-            
-            // Add catch to handle case where popup is closed
-            Promise.resolve(sendResponse({ success: true, isInFocusMode: newState })).catch(() => {});
+            sendResponse({ success: true });
         });
         return true;
     }
@@ -318,22 +275,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Add tab removal listener
 chrome.tabs.onRemoved.addListener(async (tabId) => {
     contentScriptReadyTabs.delete(tabId);
-    temporarilyDisabledTabs.delete(tabId); // Clean up temporarily disabled state
     if (focusedTabs.has(tabId)) {
         focusedTabs.delete(tabId);
         
-        // Only update current focus app info, maintain manual toggle state
         if (focusedTabs.size === 0) {
             await chrome.storage.local.set({ 
-                currentFocusApp: null,
-                focusedTabCount: 0
+                currentFocusApp: null
             });
         } else {
             const currentFocus = getCurrentlyFocusingOn();
             await chrome.storage.local.set({
-                currentFocusApp: currentFocus,
-                focusedTabCount: focusedTabs.size
+                currentFocusApp: currentFocus
             });
         }
+        
+        updateIcon(focusedTabs.size > 0);
     }
 });
+
+// Helper function to get next midnight
+function getNextMidnight() {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    return midnight.getTime();
+}

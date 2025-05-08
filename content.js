@@ -1,7 +1,7 @@
 console.log('[Focus Bubble] content.js loaded');
 
 // Notify background script that content script is ready
-chrome.runtime.sendMessage({ action: "contentScriptReady", tabId: window.__uniqueId });
+chrome.runtime.sendMessage({ action: "contentScriptReady" });
 
 // Set injection marker
 window._focusBubbleInjected = true;
@@ -9,14 +9,14 @@ window._focusBubbleInjected = true;
 // Content script handles the warning overlay functionality
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "showWarning") {
-    showWarningOverlay(message.focusAppName, message.delaySeconds);
+    showWarningOverlay(message.focusAppName, message.proceedWaitSeconds, message.proceedTimeoutMinutes);
     Promise.resolve(sendResponse({ success: true })).catch(() => {});
     return true; // Keep message channel open for async response
   }
 });
 
 // Function to show the warning overlay
-function showWarningOverlay(focusAppName, delaySeconds) {
+function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinutes) {
   if (document.getElementById('focus-bubble-overlay')) return;
 
   const overlay = document.createElement('div');
@@ -127,7 +127,7 @@ function showWarningOverlay(focusAppName, delaySeconds) {
     display: inline-block;
   `;
 
-  let countdown = Math.max(0, parseInt(delaySeconds) || 3);
+  let countdown = Math.max(0, parseInt(proceedWaitSeconds) || 3);
   proceedButton.innerText = `Wait ${countdown}s`;
   proceedButton.disabled = true;
 
@@ -144,7 +144,7 @@ function showWarningOverlay(focusAppName, delaySeconds) {
       proceedButton.style.backgroundColor = '#475569';
       proceedButton.style.borderColor = '#475569';
       proceedButton.style.color = '#f1f5f9';
-      proceedButton.innerText = 'Proceed Anyway';
+      proceedButton.innerText = `Proceed (${proceedTimeoutMinutes}m)`;
 
       proceedButton.onmouseover = () => {
         proceedButton.style.backgroundColor = '#64748b';
