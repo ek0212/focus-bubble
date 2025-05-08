@@ -18,7 +18,7 @@ const defaultSettings = {
       { domain: "tiktok.com", name: "TikTok" },
       { domain: "slack.com", name: "Slack" }
     ],
-    proceedTimeoutMinutes: 5,
+    proceedTimeoutMinutes: 2,
     currentFocusApp: null,
     focusSessions: 0,
     temporarilyDisabledUntil: null

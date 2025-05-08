@@ -25,8 +25,8 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     background-color: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(8px);
     color: white;
@@ -38,6 +38,8 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     opacity: 0;
     transition: opacity 0.3s ease;
+    box-sizing: border-box;
+    padding: 20px;
   `;
 
   const messageBox = document.createElement('div');
@@ -46,12 +48,15 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
     padding: 48px;
     border-radius: 16px;
     text-align: center;
+    width: 100%;
     max-width: 460px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     transform: translateY(20px);
     transition: transform 0.3s ease;
+    box-sizing: border-box;
+    margin: 0 auto;
   `;
 
   const title = document.createElement('h2');
