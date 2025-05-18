@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Main panel elements
-  const statusCircle = document.querySelector('.status');
   const statusText = document.getElementById('status-text');
-  const currentAppText = document.getElementById('currently-focusing-on');
   const sessionsCount = document.getElementById('sessions-count');
   const settingsBtn = document.getElementById('settings-btn');
   const temporaryDisableTimer = document.getElementById('temporary-disable-timer');
@@ -20,8 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const proceedTimeoutMinutes = document.getElementById('proceed-timeout-minutes');
 
   // Verify required elements exist
-  if (!statusCircle || !statusText || !currentAppText || !sessionsCount || 
-      !temporaryDisableTimer || !timerValue) {
+  if (!statusText || !sessionsCount || !temporaryDisableTimer || !timerValue) {
     console.error('Required DOM elements not found');
     return;
   }
@@ -60,17 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Update status display
-  function updateStatusDisplay(isActive) {
+  function updateStatusDisplay(isActive, appName = '') {
     if (isActive) {
-      statusCircle.classList.remove('inactive');
-      statusCircle.classList.add('active');
-      statusText.textContent = 'Focusing';
-      statusText.style.color = '#10b981';
+      statusText.parentElement.classList.add('active');
+      statusText.textContent = `Focused on: ${appName}`;
     } else {
-      statusCircle.classList.remove('active');
-      statusCircle.classList.add('inactive');
-      statusText.textContent = 'Not focusing';
-      statusText.style.color = '#94a3b8';
+      statusText.parentElement.classList.remove('active');
+      statusText.textContent = 'Not in focus mode';
     }
   }
 
@@ -84,12 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
       'proceedTimeoutMinutes',
       'temporarilyDisabledUntil'
     ], (data) => {
-      // Update current app display
+      // Update status display with current app if available
       if (data.currentFocusApp && data.currentFocusApp.name) {
-        currentAppText.textContent = data.currentFocusApp.name;
-        updateStatusDisplay(true);
+        updateStatusDisplay(true, data.currentFocusApp.name);
       } else {
-        currentAppText.textContent = 'No focus apps open';
         updateStatusDisplay(false);
       }
 

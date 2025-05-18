@@ -365,8 +365,8 @@ async function handleDistraction(tab) {
 // Function to update the extension icon based on focus state
 function updateIcon(isFocused) {
     const iconPath = isFocused ?
-        { path: { 16: "icons/icon16.png", 48: "icons/icon48.png", 128: "icons/icon128.png" } } :
-        { path: { 16: "icons/icon16-inactive.png", 48: "icons/icon48-inactive.png", 128: "icons/icon128-inactive.png" } };
+        { path: "icons/icon128.png" } :
+        { path: "icons/icon128-inactive.png" };
 
     chrome.action.setIcon(iconPath);
 }
