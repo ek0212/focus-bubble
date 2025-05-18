@@ -3,22 +3,17 @@ const defaultSettings = {
     focusApps: [
       { domain: "docs.google.com", name: "Google Docs" },
       { domain: "drive.google.com", name: "Google Drive" },
-      { domain: "notion.so", name: "Notion" },
       { domain: "trello.com", name: "Trello" },
-      { domain: "replit.com", name: "Replit" },
       { domain: "canva.com", name: "Canva" },
       { domain: "github.com", name: "GitHub" }
     
     ],
     blockedApps: [
-      { domain: "reddit.com", name: "Reddit" },
       { domain: "twitter.com", name: "Twitter" },
-      { domain: "x.com", name: "X" },
       { domain: "youtube.com", name: "YouTube" },
       { domain: "facebook.com", name: "Facebook" },
       { domain: "instagram.com", name: "Instagram" },
       { domain: "tiktok.com", name: "TikTok" },
-      { domain: "slack.com", name: "Slack" }
     ],
     proceedTimeoutMinutes: 2,
     currentFocusApp: null,
