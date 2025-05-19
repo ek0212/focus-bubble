@@ -1,21 +1,23 @@
 console.log('[Focus Bubble] content.js loaded');
 
 // Notify background script that content script is ready
-chrome.runtime.sendMessage({ action: "contentScriptReady" });
+chrome.runtime.sendMessage({ action: "contentScriptReady" }, () => {
+  console.log('[Focus Bubble] Sent contentScriptReady');
+});
 
 // Set injection marker
 window._focusBubbleInjected = true;
 
-// Content script handles the warning overlay functionality
+// Show warning when message received
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "showWarning") {
     showWarningOverlay(message.focusAppName, message.proceedWaitSeconds, message.proceedTimeoutMinutes);
     Promise.resolve(sendResponse({ success: true })).catch(() => {});
-    return true; // Keep message channel open for async response
+    return true;
   }
 });
 
-// Function to show the warning overlay
+// Define the overlay UI
 function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinutes) {
   if (document.getElementById('focus-bubble-overlay')) return;
 
@@ -23,10 +25,8 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
   overlay.id = 'focus-bubble-overlay';
   overlay.style.cssText = `
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
     background-color: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(8px);
     color: white;
@@ -101,10 +101,9 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
     min-width: 160px;
     width: 180px;
     text-align: center;
-    display: inline-block;
   `;
-  stayButton.onmouseover = () => { stayButton.style.backgroundColor = '#059669'; };
-  stayButton.onmouseout = () => { stayButton.style.backgroundColor = '#10b981'; };
+  stayButton.onmouseover = () => stayButton.style.backgroundColor = '#059669';
+  stayButton.onmouseout = () => stayButton.style.backgroundColor = '#10b981';
   stayButton.onclick = () => {
     overlay.style.opacity = '0';
     messageBox.style.transform = 'translateY(20px)';
@@ -129,7 +128,6 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
     width: 180px;
     opacity: 0.7;
     text-align: center;
-    display: inline-block;
   `;
 
   let countdown = Math.max(0, parseInt(proceedWaitSeconds) || 3);
@@ -138,7 +136,6 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
 
   const countdownInterval = setInterval(() => {
     countdown = Math.max(0, countdown - 1);
-    
     if (countdown > 0) {
       proceedButton.innerText = `Wait ${countdown}s`;
     } else {
@@ -186,4 +183,5 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
   });
 }
 
-console.log('Received showWarning message');
+// Expose overlay for readiness checks
+window.showWarningOverlay = showWarningOverlay;

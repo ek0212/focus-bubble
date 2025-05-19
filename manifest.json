@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Focus Bubble",
     "version": "1.0.0",
-    "description": "Block distractions while using focus apps",
+    "description": "Stay focused on work and study by gently blocking distractions. Customize your apps, track focus sessions, and build better habits.",
     "permissions": ["tabs", "storage", "scripting", "alarms"],
     "host_permissions": ["<all_urls>"],
     "action": {
@@ -11,18 +11,9 @@
         "128": "icons/icon128.png"
       }
     },
-    "chrome_url_overrides": {
-      "newtab": "popup/popup.html"
-    },
     "background": {
       "service_worker": "background.js"
     },
-    "content_scripts": [
-      {
-        "matches": ["<all_urls>"],
-        "js": ["content.js"]
-      }
-    ],
     "icons": {
       "128": "icons/icon128.png"
     }
