@@ -5,7 +5,7 @@ A Chrome extension that automatically detects when you're using focus apps and h
 ## Features
 
 - **Automatic Focus Detection**: Activates when using apps like Google Docs, Notion, Trello, GitHub
-- **Distraction Management**: Blocks distracting sites (Reddit, Twitter, YouTube, etc.)
+- **Distraction Management**: Blocks distracting sites (Reddit, X, YouTube, etc.)
 - **Smart Warnings**: Shows a warning overlay with a 3-second cooldown when visiting blocked sites
 - **Flexible Controls**: Customize focus apps, blocked sites, and timeout duration (1-60 minutes)
 
@@ -26,7 +26,3 @@ A Chrome extension that automatically detects when you're using focus apps and h
 3. When visiting blocked sites:
    - Wait 3 seconds to proceed
    - Choose to stay focused or continue temporarily
-
-## License
-
-MIT License

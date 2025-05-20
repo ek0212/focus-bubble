@@ -1,4 +1,3 @@
-// Default settings - will be customizable later
 const defaultSettings = {
     focusApps: [
         { domain: "docs.google.com", name: "Google Docs" },

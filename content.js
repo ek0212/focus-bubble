@@ -1,14 +1,11 @@
 console.log('[Focus Bubble] content.js loaded');
 
-// Notify background script that content script is ready
 chrome.runtime.sendMessage({ action: "contentScriptReady" }, () => {
   console.log('[Focus Bubble] Sent contentScriptReady');
 });
 
-// Set injection marker
 window._focusBubbleInjected = true;
 
-// Show warning when message received
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "showWarning") {
     showWarningOverlay(message.focusAppName, message.proceedWaitSeconds, message.proceedTimeoutMinutes);
@@ -17,7 +14,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Define the overlay UI
 function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinutes) {
   if (document.getElementById('focus-bubble-overlay')) return;
 
@@ -183,5 +179,4 @@ function showWarningOverlay(focusAppName, proceedWaitSeconds, proceedTimeoutMinu
   });
 }
 
-// Expose overlay for readiness checks
 window.showWarningOverlay = showWarningOverlay;
