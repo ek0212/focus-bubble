@@ -8,7 +8,7 @@ const defaultSettings = {
         { domain: "github.com", name: "GitHub" }
     ],
     blockedApps: [
-        { domain: "twitter.com", name: "Twitter" },
+        { domain: "x.com", name: "X" },
         { domain: "youtube.com", name: "YouTube" },
         { domain: "facebook.com", name: "Facebook" },
         { domain: "instagram.com", name: "Instagram" },
