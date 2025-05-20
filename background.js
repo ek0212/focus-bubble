@@ -9,7 +9,7 @@ const defaultSettings = {
     ],
     blockedApps: [
         { domain: "x.com", name: "X" },
-        { domain: "youtube.com", name: "YouTube" },
+        { domain: "amazon.com", name: "Amazon" },
         { domain: "facebook.com", name: "Facebook" },
         { domain: "instagram.com", name: "Instagram" },
         { domain: "tiktok.com", name: "TikTok" }
