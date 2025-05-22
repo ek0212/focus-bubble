@@ -1,4 +1,5 @@
 # Focus Bubble 🫧
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/users/lomcoikhbbiofamcbeaimjloombpplmc?label=Users&logo=googlechrome&color=brightgreen)](https://chromewebstore.google.com/detail/focus-bubble/lomcoikhbbiofamcbeaimjloombpplmc)  
 
 A Chrome extension that automatically detects when you're using focus apps and helps manage distractions.
 
